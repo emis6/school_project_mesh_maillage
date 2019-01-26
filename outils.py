@@ -1,10 +1,25 @@
-# global useful vars
+# -*- coding: utf-8 -*-
+"""
+Mesh project script containing mesh class, read/write functions
+Mahshid Khezri Nejad Paola Allegrini
+Prof: Bertrand Thierry
+"""
 
 import numpy as np
+from math import cos, sqrt, sin
+from cmath import exp
 
 
+"""
+Class Mesh: Contains the essential information of a mesh: Triangles, Nodes, Exterieur Bord and interieur bord
+
+It also aontains the necessery functions that calculate "Masse", "Rigidite" ->A matrices and the vector b 
+
+The function vector_U calculates the solution to the given problem and puts it in the vector U
+
+"""
 class Mesh:
-	def __init__(this, Format_, Ns,Nodes , Nt, Triangles):
+	def __init__(this, Format_, Ns,Nodes , Nt, Triangles, b_ext_size, Bord_exts, b_int_size, Bord_int, k, alpha):
 		this.Format = Format_
 		this.Nodes = Nodes
 		this.Triangles = Triangles
@@ -12,22 +27,76 @@ class Mesh:
 		this.Nt = Nt
 		this.grad_phi_ref = np.array([[-1, -1], [1, 0], [0, 1]])
 
+		this.k = k
+		this.alpha = alpha
+		
+		this.b_ext_size = b_ext_size
+		this.Bord_exts = Bord_exts
+
+		this.b_int_size = b_int_size
+		this.Bord_int = Bord_int
+
+		this.Nodes_inter = []
+		this.find_int_nodes()
+		this.matrice_mass()
+		this.matrice_rigidite()
+
+		this.vector_b()
+		this.matrice_A()
+		#this.vector_U()
+
+	def find_int_nodes(this):
+		this.Nodes_inter = []
+		
+		for i in range(0, this.b_int_size):
+			for s in this.Bord_int[i].sommets:
+				if not(s in this.Nodes_inter ):
+					this.Nodes_inter.append(s)
+
 
 	def aire_element(this, id):
-		if this.Triangles[id-1].typeElem == 15 or this.Triangles[id-1].typeElem == 1:
-			return 0
 		p1 = this.Nodes[this.Triangles[id-1].sommets[0]- 1]
 		p2 = this.Nodes[this.Triangles[id-1].sommets[1]- 1]
 		p3 = this.Nodes[this.Triangles[id-1].sommets[2]- 1]
 
 		return abs(((p2.x - p1.x)*(p3.y - p1.y) - (p3.x - p1.x)*(p2.y - p1.y)) /2.0)
 
+	def aire_seg(this, id, quoi):
+		if quoi == 1:
+			p1 = this.Nodes[this.Bord_exts[id-1].sommets[0]- 1]
+			p2 = this.Nodes[this.Bord_exts[id-1].sommets[1]- 1]
+		else:
+			p1 = this.Nodes[this.Bord_int[id-1].sommets[0]- 1]
+			p2 = this.Nodes[this.Bord_int[id-1].sommets[1]- 1]
+
+		return (np.sqrt( (p1.x - p2.x)**2 + (p1.y - p2.y)**2 ))
+
+	def u_inc(this, x, y):
+		return exp(np.complex(0, 1)*this.k) * (x*np.cos(this.alpha) + y*np.sin(this.alpha))
+
+	def vector_b(this):
+		this.b = np.zeros(this.Ns, dtype = complex)
+
+		for id_s in this.Nodes_inter:
+			p = this.Nodes[id_s-1]
+			this.b[id_s-1] = - this.u_inc(p.x, p.y)
+		return this.b
+
+	def matrice_A(this):
+		this.A = this.M + this.D
+		for id_s in this.Nodes_inter:
+			this.A[int(id_s) -1][:] = 0
+			this.A[int(id_s) -1][id_s -1] = 1
+		return this.A
+	
 	def matrice_B(this, p):
 
 		this.B = np.zeros((2, 2), dtype = complex)
 
 		p1 = this.Nodes[this.Triangles[p].sommets[0]- 1]
+
 		p2 = this.Nodes[this.Triangles[p].sommets[1]- 1]
+
 		p3 = this.Nodes[this.Triangles[p].sommets[2]- 1]
 
 		jac = (p2.x - p1.x)*(p3.y - p1.y) - (p3.x - p1.x)*(p2.y - p1.y)
@@ -47,10 +116,24 @@ class Mesh:
 				I = this.Triangles[p].sommets[i]
 				for j in range(0, 3):
 					J = this.Triangles[p].sommets[j]
-					if i == j :
-						this.M[I-1][J-1] += this.aire_element(p)/6.0
-					else:
-						this.M[I-1][J-1] += this.aire_element(p)/12.0
+					if i == j : # 2
+						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p)/6.0
+					else: # 1
+						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p)/12.0
+
+		for p in range(0, this.b_ext_size):
+			for i in range(0, 2):
+				I = this.Bord_exts[p].sommets[i] # this.Bord_exts[0].sommets
+				for j in range(0, 2):
+					J = this.Bord_exts[p].sommets[j]
+					if i == j : # 2 #todoM le -
+						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 ) /3.0 # * (this.k) * this.aire_element(p)/6.0
+						
+					else : # 1
+						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 )/6.0
+						# print("Mbords :")
+						# print(this.M[I-1][J-1])
+
 		return this.M
 
 	def matrice_rigidite(this ):
@@ -64,12 +147,16 @@ class Mesh:
 				I = this.Triangles[p].sommets[i]
 				for j in range(0, 3):
 					J = this.Triangles[p].sommets[j]
-					this.D[I-1][J-1] += this.aire_element(p) * np.matmul( np.transpose(this.grad_phi_ref[j]) ,np.matmul(bTb, this.grad_phi_ref[i]))
-
-
+					this.D[I-1][J-1] += (-1)*(this.aire_element(p) ) * np.matmul( np.transpose(this.grad_phi_ref[j]) ,np.matmul(bTb, this.grad_phi_ref[i]))
 		return this.D
 
+	def vector_U(this):
+		this.U = np.linalg.solve(this.A, this.b)
+		print(this.U)
+		for n in this.Nodes:
+			this.U[n.id -1 ] = np.abs(this.U[n.id-1] + this.u_inc(n.x, n.y))
 
+		return this.U
 
 
 class Node:
@@ -99,13 +186,18 @@ class Segment:
 		this.id = id
 		this.sommets = sommets
 
-
+"""
+Reading a gmsh file and filling a mesh object
+"""
 def read_file(filename):
-	Nodes = np.empty((100, 4), dtype = np.float)
+	Nodes = np.empty((100000, 4), dtype = float)
 	MeshFormat = np.empty(3, dtype = int) #[None] * 3
 	Number0fNodes = 0
 	NumberOfTr = 0
 	NumberOfSeg = 0
+	Number0fElems = 0
+
+	cnt_ext = cnt_inter = 0
 
 	with open(filename) as f:
 		content = f.readlines()
@@ -116,16 +208,13 @@ def read_file(filename):
 		if line[0] == '$': # reading a property
 			
 			property = line[1:-1]
-			print("yay :" + property + ":\n")
 			if property == "MeshFormat":
-				print("property: " + property + "\n")
 				i+= 1
 				line = content[i][0:-1]
 
 				formats = np.asarray( line.split(" ") );
 				MeshFormat = formats # check if it works 
-				print("format:\n")
-				print(formats)
+
 
 			elif property == "Nodes":
 				i+=1
@@ -137,10 +226,6 @@ def read_file(filename):
 				
 				for j in range(i, i + Number0fNodes):
 					Nodes[j - i] = np.asarray([content[j][0:-1].split(" ")[:4]] )
-					print("nodes : ")
-					print(j -i)
-					print(Nodes[j - i])
-
 
 			elif property == "Elements":
 				i+=1
@@ -152,67 +237,46 @@ def read_file(filename):
 				lent = content[i][0:-1].split(" ")
 				Elems = list()#np.empty((Number0fElems ,0 ), dtype = list)
 
-				print(len(Elems))
 				cnt = 0;
 				for j in range(i, i + Number0fElems): # todo i doesnt change
 
-					print("merde:")
-					print(content[i][0:-1].split(" "))
-					type = (int)(content[i][0:-1].split(" ")[1])
-					bntg = (int)(content[i][0:-1].split(" ")[2])
-
-					print("nbtg")
-					print(bntg)
-					print("type")
-					print(type)
-
+					type = (int)(content[j][0:-1].split(" ")[1])
+					bntg = (int)(content[j][0:-1].split(" ")[2])
 
 					vertice_n = 4;
 
 					if type == 2: # triangle
 						vertice_n = 3;
 						NumberOfTr += 1
-						print("dans if triangle")
+						
 					elif type == 1:
 						vertice_n = 2;
 						NumberOfSeg +=1
-						print("dans if segment")
 
-					print("cnt:" + str(cnt))
-					Elems.append(np.asarray([content[j][0:-1].split(" ")[2: ( vertice_n +bntg + 3)]]))  #[cnt] = np.asarray([content[j][0:-1].split(" ")[1:(vertice_n * 2 + 2)]])
-					print("elems : ")
-					print(Elems[cnt])
+					Elems.append(np.asarray([content[j][0:-1].split(" ")[1: ( vertice_n +bntg + 3)]]))  #[cnt] = np.asarray([content[j][0:-1].split(" ")[1:(vertice_n * 2 + 2)]])
+
+					if Elems[-1][0][0] == '1' and Elems[-1][0][2] == '1':
+						cnt_ext += 1
+					if Elems[-1][0][0] == '1' and Elems[-1][0][2] == '2':
+						cnt_inter += 1
+
 					cnt = cnt +1
 			else:
 				a = 2
-	
-	print("nbTr:")
-	print(NumberOfTr)
-	print("nbsg:")
-	print(NumberOfSeg)
 
-	# filling the object stuff:
 	Nodes_ = np.empty(Number0fNodes, dtype = Node) #[Node]* (Number0fNodes+1);
 	Elems_ = np.empty(Number0fElems, dtype = Element)
 	Trs_ = np.empty(NumberOfTr, dtype = Triangle)
 	
-	segs_ext = np.empty(1, dtype = Segment)
-	segs_int = np.empty(1, dtype = Segment)
+
+	segs_ext = np.empty(cnt_ext, dtype = Segment)
+	segs_int = np.empty(cnt_inter, dtype = Segment)
 
 	cnt = 0
 	for i in range(0, Number0fNodes):
 		Nodes_[ i ] = Node(i,Nodes[i][1], Nodes[i][2], Nodes[i][3])
 
-	print("shape:")
-	print(np.shape(Elems))
-	#Elems = np.reshape(Elems, (Number0fElems, 7))
-	#Elems = Elems.astype(int)
-	print("shape:")
-	print(np.shape(Elems))
-
-
-	print("-----------------------------Elems:-------------------------")
-	print(Elems)
+	ide_ext = ide_int = 0
 
 
 	cntT = 0
@@ -220,56 +284,95 @@ def read_file(filename):
 
 		Elems_i = Elems[i][0].astype(int)
 
-		print(Elems_i)
-
 		nbTag = int(Elems[i][0][1])
 		Elems[i] = Elems[i].astype( int)
 		
 		Elems_[ i ] = Element(i, Elems_i[0], Elems_i[2:2+nbTag], Elems_i[2+nbTag:] ) #id type tags sommets
 
-		# Elems_[ i ] = Element(i, Elems[i][0][0], Elems[i][0][2:2+nbTag], Elems[i][0][2+nbTag:] ) #id type tags sommets
 
 		if Elems_i[0] == 2:
-			Trs_[cntT] = Triangle(i, Elems_i[0:nbTag],  Elems_i[nbTag:])
+			Trs_[cntT] = Triangle(i, Elems_i[2:nbTag],  Elems_i[2+nbTag:])
 			cntT +=1
+
+
 		elif Elems_i[0] == 1:
-			seg_s = Segment(i, Elems_[i].sommets) 
-			if Elems_[i].tags[0] == 1: #ext
-				np.append(segs_ext, seg_s)
+
+			if int(Elems_i[2]) == 1: #ext
+				segs_ext[ide_ext] = Segment(i, Elems_i[2+nbTag:]) #seg_s;
+				ide_ext += 1
+				
 			else:
-				if Elems_[i].tags[0] == 1: #int
-					segs_int.append(seg_s)
+				if Elems_i[2] == 2: #int
+					segs_int[ide_int] = Segment(i, Elems_i[2+nbTag:])#seg_s
+					ide_int +=  1
 
-	print("ext:")
-	for i in segs_ext:
-		print(i.sommets)
-	
-	print("ext:")
-	for i in segs_int:
-		print(i.sommets)
-
-	princeMesh = Mesh(MeshFormat, Number0fNodes, Nodes_, Number0fElems , Elems_)
-
+	princeMesh = Mesh(MeshFormat, Number0fNodes, Nodes_, NumberOfTr , Trs_, cnt_ext, segs_ext , cnt_inter, segs_int,(2*np.pi)/(1.2), 0) #def __init__(this, Format_, Ns,Nodes , Nt, Triangles):
 	return princeMesh
 
 
+def write_file( mesh_):
+	out_file="./out_put.vtu"
+	file = open(out_file,"w")
+	file.write('<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
+	file.write("<UnstructuredGrid>\n")
+	file.write('<Piece NumberOfPoints="' + str(mesh_.Ns)+'" NumberOfCells="'+str(mesh_.Nt )+'">\n')
+	file.write("<Points>\n")
+	file.write('<DataArray NumberOfComponents="3" type="Float64">\n')
+	for i in mesh_.Nodes:
+		file.write(str(i.x) + " " + str(i.y) + " " + str(i.z))
+		# file.write(str(i.x) + " " + str(i.y)) 
+		file.write('\n')
 
-our_mesh = read_file("input_simple2.msh")
+	file.write('</DataArray>\n</Points>\n<Cells>\n<DataArray type="Int32" Name="connectivity">\n')
 
-U = np.ones(13)
+	for i in range(0, mesh_.Nt):
+		file.write(str(mesh_.Triangles[i].sommets[0]-1)+ " " + str(mesh_.Triangles[i].sommets[1]-1)+ " " + str(mesh_.Triangles[i].sommets[2]-1))
+		file.write('\n')
 
-A=np.matmul(np.transpose(U),np.matmul(our_mesh.matrice_mass(),U))
+	file.write('</DataArray>\n<DataArray type="Int32" Name="offsets">\n')
 
-A2=np.matmul(our_mesh.matrice_rigidite(),np.transpose(U))
+	for i in range(mesh_.Nt):
+		file.write(str((i+1)*3) + '\n')
 
-print("aire de premier element")
-print( our_mesh.aire_element(1)  )
+	file.write('</DataArray>\n<DataArray type="UInt8" Name="types">\n')
 
-print(our_mesh.Format) #todo
+	for i in range(mesh_.Nt):
+		file.write('5\n')
 
-#print(our_mesh.matrice_rigidite())
+	file.write('</DataArray>\n</Cells>\n<PointData Scalars="solution">\n<DataArray type="Float64" Name="Real part" format="ascii">\n')
+	for i in mesh_.U:
+		file.write(str(np.real(i)) + "\n")
+	file.write('</DataArray>\n')
+	file.write('<DataArray type="Float64" Name="Imag part" format="ascii">\n')
+	for i in mesh_.U:
+		file.write(str(np.imag(i)) + "\n")
+	file.write('</DataArray>\n')
 
-#print("verification M")
-#print(A)
-print("\n--------------------verification D----------------------\n")
-print(A2)
+	file.write('</PointData>\n</Piece>\n</UnstructuredGrid>\n</VTKFile>\n')
+	file.close()
+
+
+
+
+our_mesh = read_file("smarin.msh")
+
+
+print(our_mesh.matrice_A())
+
+A = our_mesh.matrice_A()
+print("------------------A--------------")
+print(A)
+
+b = our_mesh.vector_b()
+print("---------------b----------------")
+print(b)
+
+U = our_mesh.vector_U()
+
+print("--------------Solution---------------")
+
+print(U)
+
+
+
+write_file(our_mesh)
