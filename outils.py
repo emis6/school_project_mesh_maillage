@@ -45,6 +45,9 @@ class Mesh:
 		this.matrice_A()
 		#this.vector_U()
 
+	"""
+	finds internal bound's nodes' id_s
+	"""
 	def find_int_nodes(this):
 		this.Nodes_inter = []
 		
@@ -95,13 +98,25 @@ class Mesh:
 			this.b[id_s-1] = - this.u_inc(p.x, p.y)
 		return this.b
 
+	"""
+	Matrix A's calculation: 
+	"""
 	def matrice_A(this):
-		this.A = this.M + this.D
+		# this.A = this.M + this.D
+		this.A = np.zeros((this.Ns, this.Ns), dtype = np.complex)
+
+		for i in range(1, this.Ns):
+			for j in range(1, this.Ns):
+				this.A[i][j] = this.M[i][j] + this.D[i][j]
+
 		for id_s in this.Nodes_inter:
 			this.A[int(id_s) -1][:] = 0
-			this.A[int(id_s) -1][id_s -1] = 1
+			this.A[int(id_s) -1][int(id_s) -1] = 1
 		return this.A
 	
+	"""
+	Matrix B's calculation, this matrix is to be used in calculating matrix D
+	"""
 	def matrice_B(this, p):
 
 		this.B = np.zeros((2, 2), dtype = complex)
@@ -136,10 +151,10 @@ class Mesh:
 
 		for p in range(0, this.b_ext_size):
 			for i in range(0, 2):
-				I = this.Bord_exts[p].sommets[i] # this.Bord_exts[0].sommets
+				I = this.Bord_exts[p].sommets[i] 
 				for j in range(0, 2):
 					J = this.Bord_exts[p].sommets[j]
-					if i == j : # 2 #todoM le -
+					if i == j : # 2 
 						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 ) /3.0 # * (this.k) * this.aire_element(p)/6.0
 						
 					else : # 1

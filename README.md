@@ -8,8 +8,8 @@ Brief descirption of files:
 
 - *.vtu : is a file readable by paraview to illustrate the found solution
 
-- *.msh contains mesh and the shape to find the problem's solution
+- *.msh contains the mesh to find the problem's solution to this particular mesh
 
 - *.edp a script written in freefem++ to find the solution of the problem
 
-- *.geo file containing the description of the submarine. to be compiled with gmsh
+- *.geo file containing the description of the submarine to be read by gmsh to generate the mesh
