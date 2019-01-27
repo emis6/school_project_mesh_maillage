@@ -54,6 +54,9 @@ class Mesh:
 					this.Nodes_inter.append(s)
 
 
+	"""
+	calculates area of a triangle
+	"""
 	def aire_element(this, id):
 		p1 = this.Nodes[this.Triangles[id-1].sommets[0]- 1]
 		p2 = this.Nodes[this.Triangles[id-1].sommets[1]- 1]
@@ -61,6 +64,11 @@ class Mesh:
 
 		return abs(((p2.x - p1.x)*(p3.y - p1.y) - (p3.x - p1.x)*(p2.y - p1.y)) /2.0)
 
+	"""
+	calculates area of a line segment , 
+	- id : id of segment to find it in segments arrays 
+	- quoi = 1 indicates if this segemnts belongs to an exterieur bound / or else it belongs to an internal bound
+	"""
 	def aire_seg(this, id, quoi):
 		if quoi == 1:
 			p1 = this.Nodes[this.Bord_exts[id-1].sommets[0]- 1]
@@ -71,6 +79,11 @@ class Mesh:
 
 		return (np.sqrt( (p1.x - p2.x)**2 + (p1.y - p2.y)**2 ))
 
+	"""
+	u_inc function
+	- x : first coordinate of a point
+	- y : second coordinate of a point
+	"""
 	def u_inc(this, x, y):
 		return exp(np.complex(0, 1)*this.k) * (x*np.cos(this.alpha) + y*np.sin(this.alpha))
 
@@ -131,8 +144,7 @@ class Mesh:
 						
 					else : # 1
 						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 )/6.0
-						# print("Mbords :")
-						# print(this.M[I-1][J-1])
+
 
 		return this.M
 
@@ -148,6 +160,7 @@ class Mesh:
 				for j in range(0, 3):
 					J = this.Triangles[p].sommets[j]
 					this.D[I-1][J-1] += (-1)*(this.aire_element(p) ) * np.matmul( np.transpose(this.grad_phi_ref[j]) ,np.matmul(bTb, this.grad_phi_ref[i]))
+					this.D[I-1][J-1] = np.real(this.D[I-1][J-1])
 		return this.D
 
 	def vector_U(this):
@@ -309,8 +322,10 @@ def read_file(filename):
 	princeMesh = Mesh(MeshFormat, Number0fNodes, Nodes_, NumberOfTr , Trs_, cnt_ext, segs_ext , cnt_inter, segs_int,(2*np.pi)/(1.2), 0) #def __init__(this, Format_, Ns,Nodes , Nt, Triangles):
 	return princeMesh
 
-
-def write_file( mesh_):
+"""
+Writing the solution and the mesh into a file readable by paraview
+"""
+def write_file( mesh_, ):
 	out_file="./out_put.vtu"
 	file = open(out_file,"w")
 	file.write('<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">\n')
@@ -320,7 +335,6 @@ def write_file( mesh_):
 	file.write('<DataArray NumberOfComponents="3" type="Float64">\n')
 	for i in mesh_.Nodes:
 		file.write(str(i.x) + " " + str(i.y) + " " + str(i.z))
-		# file.write(str(i.x) + " " + str(i.y)) 
 		file.write('\n')
 
 	file.write('</DataArray>\n</Points>\n<Cells>\n<DataArray type="Int32" Name="connectivity">\n')
@@ -340,38 +354,38 @@ def write_file( mesh_):
 		file.write('5\n')
 
 	file.write('</DataArray>\n</Cells>\n<PointData Scalars="solution">\n<DataArray type="Float64" Name="Real part" format="ascii">\n')
-	for i in mesh_.U:
-		file.write(str(np.real(i)) + "\n")
+	for u in mesh_.U:
+		file.write(str(np.real(u)) + "\n")
 	file.write('</DataArray>\n')
 	file.write('<DataArray type="Float64" Name="Imag part" format="ascii">\n')
-	for i in mesh_.U:
-		file.write(str(np.imag(i)) + "\n")
+	for u in mesh_.U:
+		file.write(str(np.imag(u)) + "\n")
 	file.write('</DataArray>\n')
 
 	file.write('</PointData>\n</Piece>\n</UnstructuredGrid>\n</VTKFile>\n')
 	file.close()
 
 
-
-
+# Mesh creation from msh file:
 our_mesh = read_file("smarin.msh")
 
 
-print(our_mesh.matrice_A())
-
+# calculationg matrix A:
 A = our_mesh.matrice_A()
 print("------------------A--------------")
 print(A)
 
+
+# calculating b:
 b = our_mesh.vector_b()
 print("---------------b----------------")
 print(b)
 
 U = our_mesh.vector_U()
 
-print("--------------Solution---------------")
+print("--------------Solution Real Part---------------")
 
-print(U)
+print(np.real(U))
 
 
 

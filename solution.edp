@@ -1,0 +1,40 @@
+
+//Maillage
+load "gmsh";
+mesh th=gmshload("carre.msh");
+plot(th, wait= true, cmm = "Maillage");
+
+//
+real k=2*pi;
+real alpha=0;
+func uinc = exp(1i*k*(x*cos(alpha) + y*sin(alpha)));
+
+fespace Vh(th,P1);
+Vh<complex> uh,vh;
+
+//diffraction acoustique
+problem Pdiffrac(uh,vh) = 
+int2d(th)(-dx(uh)*dx(vh)-dy(uh)*dy(vh))
++int2d(th)(k*k*(uh*vh))
+-int1d(th,1)(1i*k*uh*vh)
++on(2,uh=-uinc);
+
+Pdiffrac; //solve the pde
+
+// Pour obtenir les parties réelles, valeur absolue :
+Vh<complex> uabs = abs(uh + uinc);
+Vh<complex> ure = real(uh);
+
+plot(uabs,wait=1,fill=true);
+
+
+/*
+cout << "Solution:" << uh << endl;
+{ 
+  ofstream fout("sol-freefem_caree.txt") ;
+
+for (int i=0; i<3324; i++){
+  fout << uabs+i << endl ;
+}
+}
+*/
