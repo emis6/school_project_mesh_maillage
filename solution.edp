@@ -5,8 +5,8 @@ mesh th=gmshload("carre.msh");
 plot(th, wait= true, cmm = "Maillage");
 
 //
-real k=2*pi;
-real alpha=0;
+real k=20;
+real alpha=Pi;
 func uinc = exp(1i*k*(x*cos(alpha) + y*sin(alpha)));
 
 fespace Vh(th,P1);

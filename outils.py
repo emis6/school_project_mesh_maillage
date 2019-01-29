@@ -145,9 +145,9 @@ class Mesh:
 				for j in range(0, 3):
 					J = this.Triangles[p].sommets[j]
 					if i == j : # 2
-						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p)/6.0
+						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p+1)/6.0
 					else: # 1
-						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p)/12.0
+						this.M[I-1][J-1] += (this.k) * (this.k) * this.aire_element(p+1)/12.0
 
 		for p in range(0, this.b_ext_size):
 			for i in range(0, 2):
@@ -155,10 +155,10 @@ class Mesh:
 				for j in range(0, 2):
 					J = this.Bord_exts[p].sommets[j]
 					if i == j : # 2 
-						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 ) /3.0 # * (this.k) * this.aire_element(p)/6.0
+						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p+1, 1 ) /3.0 # * (this.k) * this.aire_element(p)/6.0
 						
 					else : # 1
-						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p, 1 )/6.0
+						this.M[I-1][J-1] += np.complex(0, -1) * (this.k) * this.aire_seg( p+1, 1 )/6.0
 
 
 		return this.M
@@ -174,7 +174,7 @@ class Mesh:
 				I = this.Triangles[p].sommets[i]
 				for j in range(0, 3):
 					J = this.Triangles[p].sommets[j]
-					this.D[I-1][J-1] += (-1)*(this.aire_element(p) ) * np.matmul( np.transpose(this.grad_phi_ref[j]) ,np.matmul(bTb, this.grad_phi_ref[i]))
+					this.D[I-1][J-1] += (-1)*(this.aire_element(p+1) ) * np.matmul( np.transpose(this.grad_phi_ref[j]) ,np.matmul(bTb, this.grad_phi_ref[i]))
 					this.D[I-1][J-1] = np.real(this.D[I-1][J-1])
 		return this.D
 
