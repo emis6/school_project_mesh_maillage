@@ -10,6 +10,6 @@ Brief descirption of files:
 
 - *.msh contains the mesh to find the problem's solution to this particular mesh
 
-- *.edp a script written in freefem++ to find the solution of the problem
+- *.edp a script written in freefem++ to find the solution of the problem(for verification)
 
 - *.geo file containing the description of the submarine to be read by gmsh to generate the mesh
